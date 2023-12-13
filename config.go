@@ -30,7 +30,7 @@ type ConfigNotification struct {
 	Discord         ConfigNotificationDiscord  `koanf:"discord"`
 	Email           ConfigNotificationEmail    `koanf:"email"`
 	SendGrid        ConfigNotificationSendGrid `koanf:"sendgrid"`
-	MSTeams         ConfigNotificationMSTeams  `koand:"msteams"`
+	MSTeams         ConfigNotificationMSTeams  `koanf:"msteams"`
 }
 
 type ConfigNotificationTelegram struct {
