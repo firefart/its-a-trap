@@ -241,7 +241,7 @@ func (app *application) routes() http.Handler {
 				if errors.Is(err, http.ErrNoCookie) {
 					app.logger.Infof("Trap activated! User: %s Password: %s", username, password)
 					app.notificationChannel <- notification{
-						subject: "🔥 Login detected",
+						subject: fmt.Sprintf("🔥 Login on %s detected", context.Request().Host),
 						message: fmt.Sprintf("Username: %s\nPassword: %s\nIP: %s", username, password, context.RealIP()),
 					}
 					cookie := new(http.Cookie)
