@@ -1,0 +1,12 @@
+LICENSE
+Makefile
+*.md
+.gitignore
+.github
+.git
+images/
+*.png
+*.jpg
+*.json
+*.secret
+*.env
