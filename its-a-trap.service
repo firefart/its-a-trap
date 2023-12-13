@@ -1,0 +1,15 @@
+[Unit]
+Description=its-a-trap
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+User=its-a-trap
+Group=nogroup
+SyslogIdentifier=its-a-trap
+ExecStart=/home/its-a-trap/its-a-trap -c /home/its-a-trap/config.json
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
