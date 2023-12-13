@@ -1,8 +1,8 @@
 # its-a-trap
 
-Simple golang webserver that listens for basic auth requests and sends a notification when a user enters a password.
+Simple golang webserver that listens for basic auth or post requests and sends a notification when a user enters a password.
 
-Alternatively you can add your custom templates and post the `username` and `password` parameter to `/login`.
+You need to add your custom templates and post the `username` and `password` parameter to `/login` when using the post mode.
 
 ## Folder Layout
 
