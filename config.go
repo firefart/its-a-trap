@@ -12,20 +12,16 @@ import (
 
 type Configuration struct {
 	Server        ConfigServer       `koanf:"server"`
-	Cache         ConfigCache        `koanf:"cache"`
 	Notifications ConfigNotification `koanf:"notifications"`
 	Timeout       time.Duration      `koanf:"timeout"`
 	Cloudflare    bool               `koanf:"cloudflare"`
+	Realm         string             `koanf:"realm"`
 }
 
 type ConfigServer struct {
+	Listen          string        `koanf:"listen"`
 	Port            int           `koanf:"port"`
 	GracefulTimeout time.Duration `koanf:"graceful_timeout"`
-}
-
-type ConfigCache struct {
-	Enabled bool          `koanf:"enabled"`
-	Timeout time.Duration `koanf:"timeout"`
 }
 
 type ConfigNotification struct {
@@ -34,6 +30,7 @@ type ConfigNotification struct {
 	Discord         ConfigNotificationDiscord  `koanf:"discord"`
 	Email           ConfigNotificationEmail    `koanf:"email"`
 	SendGrid        ConfigNotificationSendGrid `koanf:"sendgrid"`
+	MSTeams         ConfigNotificationMSTeams  `koand:"msteams"`
 }
 
 type ConfigNotificationTelegram struct {
@@ -62,17 +59,18 @@ type ConfigNotificationSendGrid struct {
 	Recipients    []string `koanf:"recipients"`
 }
 
+type ConfigNotificationMSTeams struct {
+	Webhooks []string `koanf:"web_hooks"`
+}
+
 var defaultConfig = Configuration{
 	Server: ConfigServer{
 		Port:            8000,
 		GracefulTimeout: 10 * time.Second,
 	},
-	Cache: ConfigCache{
-		Enabled: true,
-		Timeout: 1 * time.Hour,
-	},
 	Timeout:    5 * time.Second,
 	Cloudflare: false,
+	Realm:      "restricted",
 }
 
 func GetConfig(f string) (Configuration, error) {

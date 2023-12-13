@@ -1,4 +1,4 @@
-PROG=template
+PROG=its-a-trap
 
 .DEFAULT_GOAL := build
 
@@ -42,4 +42,4 @@ test:
 
 .PHONY: run
 run: build
-	 ./${PROG} -host 0.0.0.0:8000 -debug
+	 ./${PROG} -debug -c config.json

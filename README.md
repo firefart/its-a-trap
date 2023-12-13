@@ -1,3 +1,3 @@
-# go-webserver-template
+# its-a-trap
 
-This is my goto webserver template for new applications
+Simple golang webserver that listens for basic auth requests and sends a notification when a user enters a password.

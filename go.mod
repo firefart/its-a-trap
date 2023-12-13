@@ -1,20 +1,21 @@
-module github.com/firefart/go-webserver-template
+module github.com/firefart/its-a-trap
 
-go 1.20
+go 1.21
 
 require (
+	github.com/google/uuid v1.5.0
 	github.com/knadh/koanf/parsers/json v0.1.0
 	github.com/knadh/koanf/providers/file v0.1.0
 	github.com/knadh/koanf/providers/structs v0.1.0
 	github.com/knadh/koanf/v2 v2.0.1
 	github.com/labstack/echo/v4 v4.11.3
 	github.com/nikoksr/notify v0.41.0
-	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/automaxprocs v1.5.3
 )
 
 require (
+	github.com/atc0005/go-teams-notify/v2 v2.8.0 // indirect
 	github.com/bwmarrin/discordgo v0.27.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/structs v1.1.0 // indirect

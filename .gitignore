@@ -2,3 +2,4 @@ config.json
 !config_sample.json
 *.secret
 *.env
+its-a-trap

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -14,15 +15,17 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/nikoksr/notify"
 	"github.com/nikoksr/notify/service/discord"
 	"github.com/nikoksr/notify/service/mail"
+	"github.com/nikoksr/notify/service/msteams"
 	"github.com/nikoksr/notify/service/sendgrid"
 	"github.com/nikoksr/notify/service/telegram"
-	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 
 	_ "go.uber.org/automaxprocs"
@@ -35,13 +38,20 @@ var staticFS embed.FS
 var secretKeyHeaderName = http.CanonicalHeaderKey("X-Secret-Key-Header")
 var cloudflareIPHeaderName = http.CanonicalHeaderKey("CF-Connecting-IP")
 
+const cookieName = "session"
+
 type application struct {
-	logger   *logrus.Logger
-	debug    bool
-	config   Configuration
-	renderer *TemplateRenderer
-	cache    *cache.Cache
-	notify   *notify.Notify
+	logger              *logrus.Logger
+	debug               bool
+	config              Configuration
+	renderer            *TemplateRenderer
+	notify              *notify.Notify
+	notificationChannel chan (notification)
+}
+
+type notification struct {
+	subject string
+	message string
 }
 
 // TemplateRenderer is a custom html/template renderer for Echo framework
@@ -147,10 +157,19 @@ func run(logger *logrus.Logger) error {
 		services = append(services, sendGridService)
 	}
 
+	if config.Notifications.MSTeams.Webhooks != nil && len(config.Notifications.MSTeams.Webhooks) > 1 {
+		app.logger.Info("Notifications: using msteams")
+		msteamsService := msteams.New()
+		msteamsService.AddReceivers(config.Notifications.MSTeams.Webhooks...)
+		services = append(services, msteamsService)
+	}
+
 	app.notify.UseServices(services...)
 
+	app.notificationChannel = make(chan notification, 10)
+
 	app.logger.Info("Starting server with the following parameters:")
-	app.logger.Infof("port: %d", config.Server.Port)
+	app.logger.Infof("listen: %s:%d", config.Server.Listen, config.Server.Port)
 	app.logger.Infof("graceful timeout: %s", config.Server.GracefulTimeout)
 	app.logger.Infof("timeout: %s", config.Timeout)
 	app.logger.Infof("debug: %t", app.debug)
@@ -158,12 +177,25 @@ func run(logger *logrus.Logger) error {
 	app.renderer = &TemplateRenderer{
 		templates: template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).ParseFS(staticFS, "templates/*")),
 	}
-	app.cache = cache.New(config.Cache.Timeout, config.Cache.Timeout)
 
 	srv := &http.Server{
-		Addr:    net.JoinHostPort("", strconv.Itoa(config.Server.Port)),
+		Addr:    net.JoinHostPort(config.Server.Listen, strconv.Itoa(config.Server.Port)),
 		Handler: app.routes(),
 	}
+
+	notificationCtx, notificationCancel := context.WithCancel(context.Background())
+	defer notificationCancel()
+
+	go func() {
+		select {
+		case not := <-app.notificationChannel:
+			if err := app.notify.Send(notificationCtx, not.subject, not.message); err != nil {
+				app.logger.Errorf("error sending notification: %s", err)
+			}
+		case <-notificationCtx.Done():
+			return
+		}
+	}()
 
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
@@ -174,6 +206,10 @@ func run(logger *logrus.Logger) error {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	<-c
+
+	// stop the notification loop
+	notificationCancel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), config.Server.GracefulTimeout)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
@@ -196,6 +232,32 @@ func (app *application) routes() http.Handler {
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Secure())
+	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
+		Realm: app.config.Realm,
+		Validator: func(username string, password string, context echo.Context) (bool, error) {
+			_, err := context.Cookie(cookieName)
+			if err != nil {
+				// if we have no valid cookie set, send a notification and set the cookie so we only notify once
+				if errors.Is(err, http.ErrNoCookie) {
+					app.logger.Infof("Trap activated! User: %s Password: %s", username, password)
+					app.notificationChannel <- notification{
+						subject: "🔥 Login detected",
+						message: fmt.Sprintf("Username: %s\nPassword: %s", username, password),
+					}
+					cookie := new(http.Cookie)
+					cookie.Name = cookieName
+					cookie.Value = uuid.NewString()
+					cookie.Expires = time.Now().Add(1 * time.Hour)
+					context.SetCookie(cookie)
+					return true, nil
+				}
+				// if it's no ErrNoCookie we have another error
+				return false, err
+			}
+			app.logger.Debug("service called again with valid token")
+			return true, nil
+		},
+	}))
 	e.Use(middleware.Recover())
 
 	static := echo.MustSubFS(staticFS, "assets")
@@ -205,6 +267,7 @@ func (app *application) routes() http.Handler {
 	e.GET("/", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "index.html", nil)
 	})
+
 	e.GET("/test_notifications", func(c echo.Context) error {
 		headerValue := c.Request().Header.Get(secretKeyHeaderName)
 		if headerValue == "" {
@@ -215,9 +278,6 @@ func (app *application) routes() http.Handler {
 			app.logger.Errorf("test_notification called without valid header")
 		}
 		return c.Render(http.StatusOK, "index.html", nil)
-	})
-	e.GET("/test", func(c echo.Context) error {
-		return c.String(http.StatusOK, "route")
 	})
 	return e
 }
