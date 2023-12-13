@@ -3,3 +3,6 @@ config.json
 *.secret
 *.env
 its-a-trap
+templates/
+assets/
+custom/

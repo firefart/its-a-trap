@@ -15,7 +15,20 @@ type Configuration struct {
 	Notifications ConfigNotification `koanf:"notifications"`
 	Timeout       time.Duration      `koanf:"timeout"`
 	Cloudflare    bool               `koanf:"cloudflare"`
-	Realm         string             `koanf:"realm"`
+	Method        string             `koanf:"method"`
+	Basic         ConfigBasic        `koanf:"basic"`
+	Template      ConfigTemplate     `koanf:"template"`
+}
+
+type ConfigBasic struct {
+	Realm string `koanf:"realm"`
+}
+
+type ConfigTemplate struct {
+	Folder         string `koanf:"folder"`
+	IndexTemplate  string `koanf:"index_template"`
+	FinishTemplate string `koanf:"finish_template"`
+	AssetFolder    string `koanf:"asset_folder"`
 }
 
 type ConfigServer struct {
@@ -68,9 +81,12 @@ var defaultConfig = Configuration{
 		Port:            8000,
 		GracefulTimeout: 10 * time.Second,
 	},
+	Method: "basic",
+	Basic: ConfigBasic{
+		Realm: "restricted",
+	},
 	Timeout:    5 * time.Second,
 	Cloudflare: false,
-	Realm:      "restricted",
 }
 
 func GetConfig(f string) (Configuration, error) {
@@ -94,6 +110,30 @@ func GetConfig(f string) (Configuration, error) {
 	// check some stuff
 	if config.Server.Port == 0 {
 		return Configuration{}, fmt.Errorf("please supply a port to listen on")
+	}
+
+	if config.Template.Folder == "" {
+		return Configuration{}, fmt.Errorf("please provide a template folder path")
+	}
+	if config.Template.IndexTemplate == "" {
+		return Configuration{}, fmt.Errorf("please provide a index template")
+	}
+	if config.Template.FinishTemplate == "" {
+		return Configuration{}, fmt.Errorf("please provide a finish template")
+	}
+	if config.Template.AssetFolder == "" {
+		return Configuration{}, fmt.Errorf("please provide a asset folder")
+	}
+
+	switch config.Method {
+	case "basic":
+		if config.Basic.Realm == "" {
+			return Configuration{}, fmt.Errorf("please provide a basic auth realm")
+		}
+	case "post":
+		// no checks here
+	default:
+		return Configuration{}, fmt.Errorf("invalid config method %s", config.Method)
 	}
 
 	return config, nil

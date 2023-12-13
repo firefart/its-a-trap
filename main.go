@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,10 +31,6 @@ import (
 	_ "go.uber.org/automaxprocs"
 )
 
-//go:embed templates
-//go:embed assets
-var staticFS embed.FS
-
 var secretKeyHeaderName = http.CanonicalHeaderKey("X-Secret-Key-Header")
 var cloudflareIPHeaderName = http.CanonicalHeaderKey("CF-Connecting-IP")
 
@@ -44,7 +40,6 @@ type application struct {
 	logger              *logrus.Logger
 	debug               bool
 	config              Configuration
-	renderer            *TemplateRenderer
 	notify              *notify.Notify
 	notificationChannel chan (notification)
 }
@@ -174,10 +169,6 @@ func run(logger *logrus.Logger) error {
 	app.logger.Infof("timeout: %s", config.Timeout)
 	app.logger.Infof("debug: %t", app.debug)
 
-	app.renderer = &TemplateRenderer{
-		templates: template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).ParseFS(staticFS, "templates/*")),
-	}
-
 	srv := &http.Server{
 		Addr:    net.JoinHostPort(config.Server.Listen, strconv.Itoa(config.Server.Port)),
 		Handler: app.routes(),
@@ -220,53 +211,87 @@ func run(logger *logrus.Logger) error {
 	return nil
 }
 
+func (app *application) handleLogin(c echo.Context, username, password string) error {
+	app.logger.Infof("Trap activated! User: %s Password: %s", username, password)
+	_, err := c.Cookie(cookieName)
+	if err != nil {
+		// if we have no valid cookie set, send a notification and set the cookie so we only notify once
+		if errors.Is(err, http.ErrNoCookie) {
+			app.logger.Debugf("sending notification")
+			app.notificationChannel <- notification{
+				subject: fmt.Sprintf("🔥 Login on %s detected", c.Request().Host),
+				message: fmt.Sprintf("Username: %s\nPassword: %s\nIP: %s", username, password, c.RealIP()),
+			}
+			cookie := new(http.Cookie)
+			cookie.Name = cookieName
+			cookie.Value = uuid.NewString()
+			cookie.Expires = time.Now().Add(1 * time.Hour)
+			c.SetCookie(cookie)
+			return nil
+		}
+		// if it's no ErrNoCookie we have another error
+		return err
+	}
+	return nil
+}
+
 func (app *application) routes() http.Handler {
 	e := echo.New()
 	e.HideBanner = true
 	e.Debug = app.debug
-	e.Renderer = app.renderer
 
 	if app.config.Cloudflare {
 		e.IPExtractor = extractIPFromCloudflareHeader()
 	}
 
+	e.Renderer = &TemplateRenderer{
+		templates: template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).ParseGlob(path.Join(app.config.Template.Folder, "*"))),
+	}
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Secure())
-	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
-		Realm: app.config.Realm,
-		Validator: func(username string, password string, context echo.Context) (bool, error) {
-			_, err := context.Cookie(cookieName)
-			if err != nil {
-				// if we have no valid cookie set, send a notification and set the cookie so we only notify once
-				if errors.Is(err, http.ErrNoCookie) {
-					app.logger.Infof("Trap activated! User: %s Password: %s", username, password)
-					app.notificationChannel <- notification{
-						subject: fmt.Sprintf("🔥 Login on %s detected", context.Request().Host),
-						message: fmt.Sprintf("Username: %s\nPassword: %s\nIP: %s", username, password, context.RealIP()),
-					}
-					cookie := new(http.Cookie)
-					cookie.Name = cookieName
-					cookie.Value = uuid.NewString()
-					cookie.Expires = time.Now().Add(1 * time.Hour)
-					context.SetCookie(cookie)
-					return true, nil
+
+	if app.config.Method == "basic" {
+		e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
+			Realm: app.config.Basic.Realm,
+			Validator: func(username string, password string, context echo.Context) (bool, error) {
+				if err := app.handleLogin(context, username, password); err != nil {
+					return false, err
 				}
-				// if it's no ErrNoCookie we have another error
-				return false, err
-			}
-			app.logger.Debug("service called again with valid token")
-			return true, nil
-		},
-	}))
+				return true, nil
+			},
+		}))
+	}
 	e.Use(middleware.Recover())
 
-	static := echo.MustSubFS(staticFS, "assets")
-	e.FileFS("/robots.txt", "robots.txt", static)
-	e.StaticFS("/static", static)
+	e.Static("/assets", app.config.Template.AssetFolder)
 
-	e.GET("/", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "index.html", nil)
-	})
+	switch app.config.Method {
+	case "basic":
+		// render the default template
+		e.GET("/", func(c echo.Context) error {
+			// show the finish template here as we use the basic auth middleware
+			return c.Render(http.StatusOK, app.config.Template.FinishTemplate, nil)
+		})
+	case "post":
+		e.GET("/", func(c echo.Context) error {
+			return c.Render(http.StatusOK, app.config.Template.IndexTemplate, nil)
+		})
+		e.POST("/login", func(c echo.Context) error {
+			username := c.FormValue("username")
+			password := c.FormValue("password")
+			if username == "" || password == "" {
+				return c.String(http.StatusBadRequest, "please provide credentials")
+			}
+
+			if err := app.handleLogin(c, username, password); err != nil {
+				return err
+			}
+			return c.Render(http.StatusOK, app.config.Template.FinishTemplate, nil)
+		})
+	default:
+		panic(fmt.Sprintf("invalid method %s", app.config.Method))
+	}
 
 	e.GET("/test_notifications", func(c echo.Context) error {
 		headerValue := c.Request().Header.Get(secretKeyHeaderName)

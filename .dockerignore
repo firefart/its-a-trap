@@ -11,3 +11,6 @@ images/
 *.secret
 *.env
 its-a-trap
+templates/
+assets/
+custom/

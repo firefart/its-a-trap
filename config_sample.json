@@ -3,9 +3,15 @@
     "listen": "127.0.0.1",
     "port": 8000
   },
-  "realm": "basic auth realm",
+  "method": "basic",
   "cloudflare": false,
   "timeout": "5s",
+  "template": {
+    "folder": "./custom/templates",
+    "index_template": "index.html",
+    "finish_template": "finish.html",
+    "asset_folder": "./custom/assets"
+  },
   "notifications": {
     "secret_key_header": "SECRET",
     "telegram": {
