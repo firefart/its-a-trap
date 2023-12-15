@@ -59,3 +59,21 @@ This will serve `index.html` and show `finish.html` upon sending a post request.
   }
 }
 ```
+
+In POST mode you have access to the following variables inside the template:
+
+- `{{ .LoginURL }}` - The URL to post to
+- `{{ .UsernameParameter }}` - the username parameter name
+- `{{ .PasswordParameter }}` - the password parameter name
+
+Example:
+
+```html
+<form action="{{ .LoginURL }}" method="post">
+  <label for="fname">Username:</label>
+  <input type="text" id="fname" name="{{ .UsernameParameter }}"><br><br>
+  <label for="fpass">Password:</label>
+  <input type="password" id="fpass" name="{{ .PasswordParameter }}"><br><br>
+  <input type="submit" value="Submit">
+</form>
+```

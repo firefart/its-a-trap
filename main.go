@@ -275,7 +275,16 @@ func (app *application) routes() http.Handler {
 		})
 	case "post":
 		e.GET("/", func(c echo.Context) error {
-			return c.Render(http.StatusOK, app.config.Template.IndexTemplate, nil)
+			data := struct {
+				LoginURL          string
+				UsernameParameter string
+				PasswordParameter string
+			}{
+				LoginURL:          "/login",
+				UsernameParameter: "username",
+				PasswordParameter: "password",
+			}
+			return c.Render(http.StatusOK, app.config.Template.IndexTemplate, data)
 		})
 		e.POST("/login", func(c echo.Context) error {
 			username := c.FormValue("username")
