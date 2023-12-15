@@ -40,8 +40,6 @@ This will serve `index.html` and show `finish.html` upon sending a post request.
 }
 ```
 
-This will show the hardcoded templates
-
 ## post example
 
 ```json
