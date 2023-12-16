@@ -9,8 +9,9 @@ require (
 	github.com/knadh/koanf/providers/structs v0.1.0
 	github.com/knadh/koanf/v2 v2.0.1
 	github.com/labstack/echo/v4 v4.11.3
+	github.com/lmittmann/tint v1.0.3
+	github.com/mattn/go-isatty v0.0.20
 	github.com/nikoksr/notify v0.41.0
-	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/automaxprocs v1.5.3
 )
 
@@ -28,7 +29,6 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/labstack/gommon v0.4.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
