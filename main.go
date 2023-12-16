@@ -259,7 +259,45 @@ func (app *application) routes() http.Handler {
 		templates: template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).ParseGlob(path.Join(app.config.Template.Folder, "*"))),
 	}
 
-	e.Use(middleware.Logger())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus:        true,
+		LogURI:           true,
+		LogUserAgent:     true,
+		LogLatency:       true,
+		LogRemoteIP:      true,
+		LogMethod:        true,
+		LogContentLength: true,
+		LogResponseSize:  true,
+		LogError:         true,
+		HandleError:      true, // forwards error to the global error handler, so it can decide appropriate status code
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			if v.Error == nil {
+				app.logger.LogAttrs(context.Background(), slog.LevelInfo, "REQUEST",
+					slog.String("ip", v.RemoteIP),
+					slog.String("method", v.Method),
+					slog.String("uri", v.URI),
+					slog.Int("status", v.Status),
+					slog.String("user-agent", v.UserAgent),
+					slog.Duration("latency", v.Latency),
+					slog.String("content-length", v.ContentLength),
+					slog.Int64("response-size", v.ResponseSize),
+				)
+			} else {
+				app.logger.LogAttrs(context.Background(), slog.LevelError, "REQUEST_ERROR",
+					slog.String("ip", v.RemoteIP),
+					slog.String("method", v.Method),
+					slog.String("uri", v.URI),
+					slog.Int("status", v.Status),
+					slog.String("user-agent", v.UserAgent),
+					slog.Duration("latency", v.Latency),
+					slog.String("content-length", v.ContentLength),
+					slog.Int64("response-size", v.ResponseSize),
+					slog.String("err", v.Error.Error()),
+				)
+			}
+			return nil
+		},
+	}))
 	e.Use(middleware.Secure())
 
 	if app.config.Method == "basic" {
