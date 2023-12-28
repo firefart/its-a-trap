@@ -44,7 +44,7 @@ type application struct {
 	debug               bool
 	config              Configuration
 	notify              *notify.Notify
-	notificationChannel chan (notification)
+	notificationChannel chan notification
 }
 
 type notification struct {
@@ -58,35 +58,59 @@ type TemplateRenderer struct {
 }
 
 // Render renders a template document
-func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, _ echo.Context) error {
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
 func main() {
+	var debugMode bool
+	var configFile string
+	flag.StringVar(&configFile, "c", "", "config file to use")
+	flag.BoolVar(&debugMode, "debug", false, "enable debug logging")
+	flag.Parse()
+
 	w := os.Stdout
 	var level = new(slog.LevelVar)
 	level.Set(slog.LevelInfo)
-	logger := slog.New(tint.NewHandler(w, &tint.Options{
+	options := &tint.Options{
 		Level:   level,
 		NoColor: !isatty.IsTerminal(w.Fd()),
-	}))
-	if err := run(logger, level); err != nil {
+	}
+
+	if debugMode {
+		level.Set(slog.LevelDebug)
+		// add source file information
+		wd, err := os.Getwd()
+		if err != nil {
+			panic("unable to determine working directory")
+		}
+
+		replacer := func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.SourceKey {
+				source := a.Value.Any().(*slog.Source)
+				// remove current working directory and only leave the relative path to the program
+				if file, ok := strings.CutPrefix(source.File, wd); ok {
+					source.File = file
+				}
+			}
+			return a
+		}
+		options.ReplaceAttr = replacer
+		options.AddSource = true
+	}
+
+	logger := slog.New(tint.NewHandler(w, options))
+	if err := run(logger, configFile, debugMode); err != nil {
 		trace := string(debug.Stack())
 		logger.Error(err.Error(), "trace", trace)
 		os.Exit(1)
 	}
 }
 
-func run(logger *slog.Logger, level *slog.LevelVar) error {
+func run(logger *slog.Logger, configFile string, debugMode bool) error {
 	app := &application{
 		logger: logger,
 	}
-
-	var configFile string
-	var debugOutput bool
-	flag.StringVar(&configFile, "c", "", "config file to use")
-	flag.BoolVar(&debugOutput, "debug", false, "enable debug logging")
-	flag.Parse()
 
 	if configFile == "" {
 		return fmt.Errorf("please provide a config file")
@@ -97,11 +121,7 @@ func run(logger *slog.Logger, level *slog.LevelVar) error {
 		return err
 	}
 	app.config = config
-
-	if debugOutput {
-		level.Set(slog.LevelDebug)
-		app.debug = true
-	}
+	app.debug = debugMode
 
 	app.notify = notify.New()
 	var services []notify.Notifier
@@ -200,7 +220,7 @@ func run(logger *slog.Logger, level *slog.LevelVar) error {
 	}()
 
 	go func() {
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			app.logger.Error(err.Error(), "trace", string(debug.Stack()))
 		}
 	}()
@@ -356,7 +376,7 @@ func (app *application) routes() http.Handler {
 		if headerValue == "" {
 			app.logger.Error("test_notification called without secret header")
 		} else if headerValue == app.config.Notifications.SecretKeyHeader {
-			app.logEror(fmt.Errorf("test"))
+			app.logError(fmt.Errorf("test"))
 		} else {
 			app.logger.Error("test_notification called without valid header")
 		}
@@ -365,7 +385,7 @@ func (app *application) routes() http.Handler {
 	return e
 }
 
-func (app *application) logEror(err error) {
+func (app *application) logError(err error) {
 	app.logger.Error(err.Error(), "trace", string(debug.Stack()))
 	if err2 := app.notify.Send(context.Background(), "[ERROR]", err.Error()); err != nil {
 		app.logger.Error(err2.Error(), "trace", string(debug.Stack()))

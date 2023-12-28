@@ -2,6 +2,7 @@ config.json
 !config_sample.json
 *.secret
 *.env
+*.exe
 its-a-trap
 templates/
 assets/

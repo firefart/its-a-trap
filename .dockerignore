@@ -10,7 +10,9 @@ images/
 *.json
 *.secret
 *.env
+*.exe
 its-a-trap
 templates/
 assets/
 custom/
+.idea/
