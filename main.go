@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -37,6 +38,9 @@ import (
 var secretKeyHeaderName = http.CanonicalHeaderKey("X-Secret-Key-Header")
 var cloudflareIPHeaderName = http.CanonicalHeaderKey("CF-Connecting-IP")
 
+//go:embed error_pages
+var errorPageAssets embed.FS
+
 const cookieName = "session"
 
 type application struct {
@@ -60,6 +64,30 @@ type TemplateRenderer struct {
 // Render renders a template document
 func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, _ echo.Context) error {
 	return t.templates.ExecuteTemplate(w, name, data)
+}
+
+func customHTTPErrorHandler(err error, c echo.Context) {
+	if c.Response().Committed {
+		return
+	}
+
+	code := http.StatusInternalServerError
+	var echoError *echo.HTTPError
+	if errors.As(err, &echoError) {
+		code = echoError.Code
+	}
+	c.Logger().Error(err)
+
+	errorPage := fmt.Sprintf("error_pages/HTTP%d.html", code)
+	content, err := errorPageAssets.ReadFile(errorPage)
+	if err != nil {
+		c.Logger().Error(err)
+		return
+	}
+	if err := c.HTMLBlob(code, content); err != nil {
+		c.Logger().Error(err)
+		return
+	}
 }
 
 func main() {
@@ -334,6 +362,8 @@ func (app *application) routes() http.Handler {
 	e.Use(middleware.Recover())
 
 	e.Static("/assets", app.config.Template.AssetFolder)
+
+	e.HTTPErrorHandler = customHTTPErrorHandler
 
 	switch app.config.Method {
 	case "basic":
