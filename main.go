@@ -387,7 +387,7 @@ func (app *application) routes() http.Handler {
 
 func (app *application) logError(err error) {
 	app.logger.Error(err.Error(), "trace", string(debug.Stack()))
-	if err2 := app.notify.Send(context.Background(), "[ERROR]", err.Error()); err != nil {
+	if err2 := app.notify.Send(context.Background(), "[ERROR]", err.Error()); err2 != nil {
 		app.logger.Error(err2.Error(), "trace", string(debug.Stack()))
 	}
 }
