@@ -368,12 +368,12 @@ func (app *application) routes() http.Handler {
 	switch app.config.Method {
 	case "basic":
 		// render the default template
-		e.GET("/", func(c echo.Context) error {
+		e.GET("/*", func(c echo.Context) error {
 			// show the finish template here as we use the basic auth middleware
 			return c.Render(http.StatusOK, app.config.Template.FinishTemplate, nil)
 		})
 	case "post":
-		e.GET("/", func(c echo.Context) error {
+		e.GET("/*", func(c echo.Context) error {
 			data := struct {
 				LoginURL          string
 				UsernameParameter string

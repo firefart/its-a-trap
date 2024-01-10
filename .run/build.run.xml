@@ -2,7 +2,7 @@
   <configuration default="false" name="build" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="its-a-trap" />
     <working_directory value="$PROJECT_DIR$" />
-    <parameters value="-debug -c config_sample.json" />
+    <parameters value="-debug -c config.json" />
     <kind value="DIRECTORY" />
     <package value="github.com/firefart/its-a-trap" />
     <directory value="$PROJECT_DIR$" />
