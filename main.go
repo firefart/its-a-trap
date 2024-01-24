@@ -92,19 +92,18 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 
 func main() {
 	var debugMode bool
-	var configFile string
-	flag.StringVar(&configFile, "c", "", "config file to use")
-	flag.BoolVar(&debugMode, "debug", false, "enable debug logging")
+	var configFilename string
+	var jsonOutput bool
+	flag.BoolVar(&debugMode, "debug", false, "Enable DEBUG mode")
+	flag.StringVar(&configFilename, "config", "", "config file to use")
+	flag.BoolVar(&jsonOutput, "json", false, "output in json instead")
 	flag.Parse()
 
 	w := os.Stdout
 	var level = new(slog.LevelVar)
 	level.Set(slog.LevelInfo)
-	options := &tint.Options{
-		Level:   level,
-		NoColor: !isatty.IsTerminal(w.Fd()),
-	}
 
+	var replaceFunc func(groups []string, a slog.Attr) slog.Attr = nil
 	if debugMode {
 		level.Set(slog.LevelDebug)
 		// add source file information
@@ -112,8 +111,7 @@ func main() {
 		if err != nil {
 			panic("unable to determine working directory")
 		}
-
-		replacer := func(groups []string, a slog.Attr) slog.Attr {
+		replaceFunc = func(groups []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.SourceKey {
 				source := a.Value.Any().(*slog.Source)
 				// remove current working directory and only leave the relative path to the program
@@ -123,23 +121,34 @@ func main() {
 			}
 			return a
 		}
-		options.ReplaceAttr = replacer
-		options.AddSource = true
 	}
 
-	logger := slog.New(tint.NewHandler(w, options))
-	if err := run(logger, configFile, debugMode); err != nil {
-		trace := string(debug.Stack())
-		logger.Error(err.Error(), "trace", trace)
+	var handler slog.Handler
+	if jsonOutput {
+		handler = slog.NewJSONHandler(w, &slog.HandlerOptions{
+			Level:       level,
+			AddSource:   debugMode,
+			ReplaceAttr: replaceFunc,
+		})
+	} else {
+		textOptions := &tint.Options{
+			Level:       level,
+			NoColor:     !isatty.IsTerminal(w.Fd()),
+			AddSource:   debugMode,
+			ReplaceAttr: replaceFunc,
+		}
+		handler = tint.NewHandler(w, textOptions)
+	}
+
+	logger := slog.New(handler)
+
+	if err := run(logger, configFilename, debugMode); err != nil {
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 }
 
 func run(logger *slog.Logger, configFile string, debugMode bool) error {
-	app := &application{
-		logger: logger,
-	}
-
 	if configFile == "" {
 		return fmt.Errorf("please provide a config file")
 	}
@@ -148,8 +157,12 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 	if err != nil {
 		return err
 	}
-	app.config = config
-	app.debug = debugMode
+
+	app := &application{
+		logger: logger,
+		debug:  debugMode,
+		config: config,
+	}
 
 	app.notify = notify.New()
 	var services []notify.Notifier
@@ -247,13 +260,15 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 		}
 	}()
 
+	c := make(chan os.Signal, 1)
+
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			app.logger.Error(err.Error(), "trace", string(debug.Stack()))
+			app.logger.Error("error on listenandserve", slog.String("err", err.Error()))
+			c <- os.Kill
 		}
 	}()
 
-	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	<-c
 
@@ -294,17 +309,45 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 	return nil
 }
 
+func (app *application) customHTTPErrorHandler(err error, c echo.Context) {
+	if c.Response().Committed {
+		return
+	}
+
+	code := http.StatusInternalServerError
+	var echoError *echo.HTTPError
+	if errors.As(err, &echoError) {
+		code = echoError.Code
+	}
+
+	// send an asynchronous notification (but ignore 404 and stuff)
+	if err != nil && code > 499 {
+		app.logger.Error("error on request", slog.String("err", err.Error()))
+
+		go func(e error) {
+			app.logger.Debug("sending error notification", slog.String("err", e.Error()))
+			if err2 := app.notify.Send(context.Background(), "ERROR", e.Error()); err2 != nil {
+				app.logger.Error("error on notification send", slog.String("err", err2.Error()))
+			}
+		}(err)
+	}
+
+	if err2 := c.String(code, ""); err2 != nil {
+		app.logger.Error("error on error reply", slog.String("err", err2.Error()))
+	}
+}
+
 func (app *application) routes() http.Handler {
 	e := echo.New()
 	e.HideBanner = true
 	e.Debug = app.debug
+	e.Renderer = &TemplateRenderer{
+		templates: template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).ParseGlob(path.Join(app.config.Template.Folder, "*"))),
+	}
+	e.HTTPErrorHandler = app.customHTTPErrorHandler
 
 	if app.config.Cloudflare {
 		e.IPExtractor = extractIPFromCloudflareHeader()
-	}
-
-	e.Renderer = &TemplateRenderer{
-		templates: template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).ParseGlob(path.Join(app.config.Template.Folder, "*"))),
 	}
 
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -319,30 +362,24 @@ func (app *application) routes() http.Handler {
 		LogError:         true,
 		HandleError:      true, // forwards error to the global error handler, so it can decide appropriate status code
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			if v.Error == nil {
-				app.logger.LogAttrs(context.Background(), slog.LevelInfo, "REQUEST",
-					slog.String("ip", v.RemoteIP),
-					slog.String("method", v.Method),
-					slog.String("uri", v.URI),
-					slog.Int("status", v.Status),
-					slog.String("user-agent", v.UserAgent),
-					slog.Duration("latency", v.Latency),
-					slog.String("content-length", v.ContentLength),
-					slog.Int64("response-size", v.ResponseSize),
-				)
-			} else {
-				app.logger.LogAttrs(context.Background(), slog.LevelError, "REQUEST_ERROR",
-					slog.String("ip", v.RemoteIP),
-					slog.String("method", v.Method),
-					slog.String("uri", v.URI),
-					slog.Int("status", v.Status),
-					slog.String("user-agent", v.UserAgent),
-					slog.Duration("latency", v.Latency),
-					slog.String("content-length", v.ContentLength),
-					slog.Int64("response-size", v.ResponseSize),
-					slog.String("err", v.Error.Error()),
-				)
+			logLevel := slog.LevelInfo
+			errString := ""
+			// only set error on real errors
+			if v.Error != nil && v.Status > 499 {
+				errString = v.Error.Error()
+				logLevel = slog.LevelError
 			}
+			app.logger.LogAttrs(context.Background(), logLevel, "REQUEST",
+				slog.String("ip", v.RemoteIP),
+				slog.String("method", v.Method),
+				slog.String("uri", v.URI),
+				slog.Int("status", v.Status),
+				slog.String("user-agent", v.UserAgent),
+				slog.Duration("latency", v.Latency),
+				slog.String("content-length", v.ContentLength), // request content length
+				slog.Int64("response-size", v.ResponseSize),
+				slog.String("err", errString))
+
 			return nil
 		},
 	}))
@@ -359,7 +396,12 @@ func (app *application) routes() http.Handler {
 			},
 		}))
 	}
-	e.Use(middleware.Recover())
+	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			// send the error to the default error handler
+			return fmt.Errorf("PANIC! %v - %s", err, string(stack))
+		},
+	}))
 
 	e.Static("/assets", app.config.Template.AssetFolder)
 
@@ -401,25 +443,40 @@ func (app *application) routes() http.Handler {
 		panic(fmt.Sprintf("invalid method %s", app.config.Method))
 	}
 
+	e.GET("/test_panic", func(c echo.Context) error {
+		// no checks in debug mode
+		if app.debug {
+			panic("test")
+		}
+
+		headerValue := c.Request().Header.Get(secretKeyHeaderName)
+		if headerValue == "" {
+			app.logger.Error("test_panic called without secret header")
+		} else if headerValue == app.config.Notifications.SecretKeyHeader {
+			panic("test")
+		} else {
+			app.logger.Error("test_panic called without valid header")
+		}
+		return c.Render(http.StatusOK, "index.html", nil)
+	})
+
 	e.GET("/test_notifications", func(c echo.Context) error {
+		// no checks in debug mode
+		if app.debug {
+			return fmt.Errorf("test")
+		}
+
 		headerValue := c.Request().Header.Get(secretKeyHeaderName)
 		if headerValue == "" {
 			app.logger.Error("test_notification called without secret header")
 		} else if headerValue == app.config.Notifications.SecretKeyHeader {
-			app.logError(fmt.Errorf("test"))
+			return fmt.Errorf("test")
 		} else {
 			app.logger.Error("test_notification called without valid header")
 		}
 		return c.Render(http.StatusOK, "index.html", nil)
 	})
 	return e
-}
-
-func (app *application) logError(err error) {
-	app.logger.Error(err.Error(), "trace", string(debug.Stack()))
-	if err2 := app.notify.Send(context.Background(), "[ERROR]", err.Error()); err2 != nil {
-		app.logger.Error(err2.Error(), "trace", string(debug.Stack()))
-	}
 }
 
 func extractIPFromCloudflareHeader() echo.IPExtractor {

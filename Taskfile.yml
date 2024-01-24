@@ -6,7 +6,7 @@ vars:
 tasks:
   update:
     cmds:
-      - go get -u ./...
+      - go get -u
       - go mod tidy -v
 
   build:
@@ -14,13 +14,21 @@ tasks:
     cmds:
       - go fmt ./...
       - go vet ./...
-      - go build -o {{.PROGRAM}} ./...
+      - go build -o {{.PROGRAM}}
 
   test:
     env:
       CGO_ENABLED: 1 # required by -race
     cmds:
       - go test -race -cover ./...
+
+  run:
+    cmds:
+      - go run . -debug -config config.json
+
+  run-json:
+    cmds:
+      - go run . -debug -config config.json -json
 
   lint:
     cmds:
@@ -34,3 +42,9 @@ tasks:
     vars:
       GOPATH:
         sh: go env GOPATH
+
+  docker-update:
+    cmds:
+      - docker pull golang:latest
+      - docker pull scratch:latest
+      - docker build --tag {{.PROGRAM}}}:dev .
