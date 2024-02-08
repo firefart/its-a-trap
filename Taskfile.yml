@@ -47,4 +47,4 @@ tasks:
     cmds:
       - docker pull golang:latest
       - docker pull scratch:latest
-      - docker build --tag {{.PROGRAM}}}:dev .
+      - docker build --tag {{.PROGRAM}}:dev .
