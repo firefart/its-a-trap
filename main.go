@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -79,6 +80,15 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 	c.Logger().Error(err)
 
 	errorPage := fmt.Sprintf("error_pages/HTTP%d.html", code)
+	if _, err := fs.Stat(errorPageAssets, errorPage); err == nil {
+		// file exists, no further processing
+	} else if errors.Is(err, os.ErrNotExist) {
+		errorPage = "error_pages/HTTP500.html"
+	} else {
+		c.Logger().Error(err)
+		errorPage = "error_pages/HTTP500.html"
+	}
+
 	content, err := errorPageAssets.ReadFile(errorPage)
 	if err != nil {
 		c.Logger().Error(err)
