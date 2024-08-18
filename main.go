@@ -232,7 +232,7 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 		services = append(services, sendGridService)
 	}
 
-	if config.Notifications.MSTeams.Webhooks != nil && len(config.Notifications.MSTeams.Webhooks) > 0 {
+	if len(config.Notifications.MSTeams.Webhooks) > 0 {
 		app.logger.Info("Notifications: using msteams")
 		msteamsService := msteams.New()
 		msteamsService.AddReceivers(config.Notifications.MSTeams.Webhooks...)
