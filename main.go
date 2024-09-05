@@ -80,13 +80,13 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 	c.Logger().Error(err)
 
 	errorPage := fmt.Sprintf("error_pages/HTTP%d.html", code)
-	if _, err := fs.Stat(errorPageAssets, errorPage); err == nil {
-		// file exists, no further processing
-	} else if errors.Is(err, os.ErrNotExist) {
-		errorPage = "error_pages/HTTP500.html"
-	} else {
-		c.Logger().Error(err)
-		errorPage = "error_pages/HTTP500.html"
+	if _, err := fs.Stat(errorPageAssets, errorPage); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			errorPage = "error_pages/HTTP500.html"
+		} else {
+			c.Logger().Error(err)
+			errorPage = "error_pages/HTTP500.html"
+		}
 	}
 
 	content, err := errorPageAssets.ReadFile(errorPage)
@@ -113,7 +113,7 @@ func main() {
 	var level = new(slog.LevelVar)
 	level.Set(slog.LevelInfo)
 
-	var replaceFunc func(groups []string, a slog.Attr) slog.Attr = nil
+	var replaceFunc func(groups []string, a slog.Attr) slog.Attr
 	if debugMode {
 		level.Set(slog.LevelDebug)
 		// add source file information
@@ -121,7 +121,7 @@ func main() {
 		if err != nil {
 			panic("unable to determine working directory")
 		}
-		replaceFunc = func(groups []string, a slog.Attr) slog.Attr {
+		replaceFunc = func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.SourceKey {
 				source := a.Value.Any().(*slog.Source)
 				// remove current working directory and only leave the relative path to the program
@@ -371,7 +371,7 @@ func (app *application) routes() http.Handler {
 		LogResponseSize:  true,
 		LogError:         true,
 		HandleError:      true, // forwards error to the global error handler, so it can decide appropriate status code
-		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
 			logLevel := slog.LevelInfo
 			errString := ""
 			// only set error on real errors
@@ -407,7 +407,7 @@ func (app *application) routes() http.Handler {
 		}))
 	}
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+		LogErrorFunc: func(_ echo.Context, err error, stack []byte) error {
 			// send the error to the default error handler
 			return fmt.Errorf("PANIC! %v - %s", err, string(stack))
 		},
