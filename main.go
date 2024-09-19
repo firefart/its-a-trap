@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/likexian/whois"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	"github.com/nikoksr/notify"
@@ -303,9 +304,21 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 		// if we have no valid cookie set, send a notification and set the cookie so we only notify once
 		if errors.Is(err, http.ErrNoCookie) {
 			app.logger.Debug("sending notification")
+			ip := c.RealIP()
+			message := fmt.Sprintf("Username: %s\nPassword: %s\nIP: %s", username, password, ip)
+
+			// include optional whois information
+			if app.config.Whois {
+				whoisResult, err := whois.Whois(ip)
+				if err == nil {
+					return err
+				}
+				message = fmt.Sprintf("%s\nWHOIS:\n%s", message, whoisResult)
+			}
+
 			app.notificationChannel <- notification{
 				subject: fmt.Sprintf("🔥 Login on %s detected", c.Request().Host),
-				message: fmt.Sprintf("Username: %s\nPassword: %s\nIP: %s", username, password, c.RealIP()),
+				message: message,
 			}
 			cookie := new(http.Cookie)
 			cookie.Name = cookieName

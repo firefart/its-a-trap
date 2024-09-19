@@ -18,6 +18,7 @@ type Configuration struct {
 	Method        string             `koanf:"method"`
 	Basic         ConfigBasic        `koanf:"basic"`
 	Template      ConfigTemplate     `koanf:"template"`
+	Whois         bool               `koanf:"whois"`
 }
 
 type ConfigBasic struct {
@@ -87,6 +88,7 @@ var defaultConfig = Configuration{
 	},
 	Timeout:    5 * time.Second,
 	Cloudflare: false,
+	Whois:      true,
 }
 
 func GetConfig(f string) (Configuration, error) {
