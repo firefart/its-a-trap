@@ -310,7 +310,7 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 			// include optional whois information
 			if app.config.Whois {
 				whoisResult, err := whois.Whois(ip)
-				if err == nil {
+				if err != nil {
 					return err
 				}
 				message = fmt.Sprintf("%s\nWHOIS:\n%s", message, whoisResult)
