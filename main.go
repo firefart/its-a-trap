@@ -209,6 +209,7 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 		app.logger.Info("Notifications: using email")
 		mailHost := net.JoinHostPort(app.config.Notifications.Email.Server, strconv.Itoa(app.config.Notifications.Email.Port))
 		mailService := mail.New(app.config.Notifications.Email.Sender, mailHost)
+		mailService.BodyFormat(mail.PlainText)
 		if app.config.Notifications.Email.Username != "" && app.config.Notifications.Email.Password != "" {
 			mailService.AuthenticateSMTP(
 				"",
