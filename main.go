@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -515,6 +516,8 @@ func extractIPFromCloudflareHeader() echo.IPExtractor {
 	}
 }
 
+var regexMultipleWhitespaces = regexp.MustCompile(`(?s)\n\s*\n\s*\n`)
+
 func cleanupWhois(s string) string {
 	var res strings.Builder
 	scanner := bufio.NewScanner(strings.NewReader(s))
@@ -555,5 +558,5 @@ func cleanupWhois(s string) string {
 		res.WriteString(fmt.Sprintf("%s\n", t))
 	}
 
-	return res.String()
+	return strings.TrimSpace(regexMultipleWhitespaces.ReplaceAllString(res.String(), "\n"))
 }
