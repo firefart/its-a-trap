@@ -308,7 +308,7 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 		if errors.Is(err, http.ErrNoCookie) {
 			app.logger.Debug("sending notification")
 			ip := c.RealIP()
-			message := fmt.Sprintf("<code>Username: %s\nPassword: %s\nIP: %s</code>", html.EscapeString(username), html.EscapeString(password), html.EscapeString(ip))
+			message := fmt.Sprintf("<strong>Username:</strong> <pre>%s</pre>\n<strong>Password:</strong> <pre>%s</pre>\n<strong>IP:</strong> <pre>%s</pre>", html.EscapeString(username), html.EscapeString(password), html.EscapeString(ip))
 
 			// include optional whois information
 			if app.config.Whois {
@@ -317,7 +317,7 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 					return err
 				}
 				// also clean the whois to remove a lot of uneeded stuff
-				message = fmt.Sprintf("%s\n\n<code>WHOIS:\n%s</code>", message, html.EscapeString(cleanupWhois(whoisResult)))
+				message = fmt.Sprintf("%s\n\n<strong>WHOIS:</strong>\n<pre>%s</pre>", message, html.EscapeString(cleanupWhois(whoisResult)))
 			}
 
 			app.notificationChannel <- notification{
