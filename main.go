@@ -308,7 +308,7 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 		if errors.Is(err, http.ErrNoCookie) {
 			app.logger.Debug("sending notification")
 			ip := c.RealIP()
-			message := fmt.Sprintf("Username: %s\nPassword: %s\nIP: %s", username, password, ip)
+			message := fmt.Sprintf("<code>Username: %s\nPassword: %s\nIP: %s</code>", html.EscapeString(username), html.EscapeString(password), html.EscapeString(ip))
 
 			// include optional whois information
 			if app.config.Whois {
@@ -317,12 +317,12 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 					return err
 				}
 				// also clean the whois to remove a lot of uneeded stuff
-				message = fmt.Sprintf("%s\nWHOIS:\n%s", message, cleanupWhois(whoisResult))
+				message = fmt.Sprintf("%s\n\n<code>WHOIS:\n%s</code>", message, html.EscapeString(cleanupWhois(whoisResult)))
 			}
 
 			app.notificationChannel <- notification{
 				subject: fmt.Sprintf("🔥 Login on %s detected", c.Request().Host),
-				message: convertToHTML(message),
+				message: message,
 			}
 			cookie := new(http.Cookie)
 			cookie.Name = cookieName
@@ -560,10 +560,4 @@ func cleanupWhois(s string) string {
 	}
 
 	return strings.TrimSpace(regexMultipleWhitespaces.ReplaceAllString(res.String(), "\n"))
-}
-
-func convertToHTML(s string) string {
-	s = html.EscapeString(s)
-	s = strings.ReplaceAll(s, "\n", "<br>")
-	return s
 }
