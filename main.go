@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"embed"
 	"errors"
@@ -313,7 +314,8 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 				if err != nil {
 					return err
 				}
-				message = fmt.Sprintf("%s\nWHOIS:\n%s", message, whoisResult)
+				// also clean the whois to remove a lot of uneeded stuff
+				message = fmt.Sprintf("%s\nWHOIS:\n%s", message, cleanupWhois(whoisResult))
 			}
 
 			app.notificationChannel <- notification{
@@ -511,4 +513,49 @@ func extractIPFromCloudflareHeader() echo.IPExtractor {
 		// fall back to normal ip extraction
 		return echo.ExtractIPDirect()(req)
 	}
+}
+
+var ignoredWhoisEntries = []string{"", ""}
+
+func cleanupWhois(s string) string {
+	var res strings.Builder
+	scanner := bufio.NewScanner(strings.NewReader(s))
+	for scanner.Scan() {
+		t := strings.TrimSpace(scanner.Text())
+		// ignore comments to shorten output
+		if strings.HasPrefix(t, "%") {
+			continue
+		}
+
+		// remove uninteresting entries to shorten output even more
+		if strings.HasPrefix(t, "admin-c:") {
+			continue
+		}
+		if strings.HasPrefix(t, "tech-c:") {
+			continue
+		}
+		if strings.HasPrefix(t, "status:") {
+			continue
+		}
+		if strings.HasPrefix(t, "mnt-by:") {
+			continue
+		}
+		if strings.HasPrefix(t, "mnt-lower:") {
+			continue
+		}
+		if strings.HasPrefix(t, "nic-hdl:") {
+			continue
+		}
+		if strings.HasPrefix(t, "remarks:") {
+			continue
+		}
+		if strings.HasPrefix(t, "origin:") {
+			continue
+		}
+
+		t = strings.TrimSuffix(t, " # Filtered")
+		res.WriteString(fmt.Sprintf("%s\n", t))
+	}
+
+	return res.String()
 }
