@@ -515,8 +515,6 @@ func extractIPFromCloudflareHeader() echo.IPExtractor {
 	}
 }
 
-var ignoredWhoisEntries = []string{"", ""}
-
 func cleanupWhois(s string) string {
 	var res strings.Builder
 	scanner := bufio.NewScanner(strings.NewReader(s))
