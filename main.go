@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html"
 	"html/template"
 	"io"
 	"io/fs"
@@ -186,6 +187,7 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 		if err != nil {
 			return fmt.Errorf("telegram setup: %w", err)
 		}
+		telegramService.SetParseMode(telegram.ModeHTML)
 		telegramService.AddReceivers(config.Notifications.Telegram.ChatIDs...)
 		services = append(services, telegramService)
 	}
@@ -212,7 +214,6 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 		app.logger.Info("Notifications: using email")
 		mailHost := net.JoinHostPort(app.config.Notifications.Email.Server, strconv.Itoa(app.config.Notifications.Email.Port))
 		mailService := mail.New(app.config.Notifications.Email.Sender, mailHost)
-		mailService.BodyFormat(mail.PlainText)
 		if app.config.Notifications.Email.Username != "" && app.config.Notifications.Email.Password != "" {
 			mailService.AuthenticateSMTP(
 				"",
@@ -321,7 +322,7 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 
 			app.notificationChannel <- notification{
 				subject: fmt.Sprintf("🔥 Login on %s detected", c.Request().Host),
-				message: message,
+				message: convertToHTML(message),
 			}
 			cookie := new(http.Cookie)
 			cookie.Name = cookieName
@@ -559,4 +560,10 @@ func cleanupWhois(s string) string {
 	}
 
 	return strings.TrimSpace(regexMultipleWhitespaces.ReplaceAllString(res.String(), "\n"))
+}
+
+func convertToHTML(s string) string {
+	s = html.EscapeString(s)
+	s = strings.ReplaceAll(s, "\n", "<br>")
+	return s
 }
