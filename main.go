@@ -559,5 +559,6 @@ func cleanupWhois(s string) string {
 		res.WriteString(fmt.Sprintf("%s\n", t))
 	}
 
+	// also replace multiple linebreaks with a single one
 	return strings.TrimSpace(regexMultipleWhitespaces.ReplaceAllString(res.String(), "\n"))
 }
