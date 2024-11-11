@@ -525,7 +525,7 @@ func cleanupWhois(s string) string {
 	for scanner.Scan() {
 		t := strings.TrimSpace(scanner.Text())
 		// ignore comments to shorten output
-		if strings.HasPrefix(t, "%") {
+		if strings.HasPrefix(t, "%") || strings.HasPrefix(t, "#") {
 			continue
 		}
 
@@ -552,6 +552,31 @@ func cleanupWhois(s string) string {
 			continue
 		}
 		if strings.HasPrefix(t, "origin:") {
+			continue
+		}
+		if strings.HasPrefix(t, "Ref:") {
+			continue
+		}
+		if strings.HasPrefix(t, "Comment:") {
+			continue
+		}
+		if strings.HasPrefix(t, "ResourceLink:") {
+			continue
+		}
+		if strings.HasPrefix(t, "StateProv:") {
+			continue
+		}
+		if strings.HasPrefix(t, "ReferralServer:") {
+			continue
+		}
+		if strings.HasPrefix(t, "geoloc:") {
+			continue
+		}
+		// OrgTech* and OrgAbuse*
+		if strings.HasPrefix(t, "OrgTech") {
+			continue
+		}
+		if strings.HasPrefix(t, "OrgAbuse") {
 			continue
 		}
 
