@@ -1,8 +1,10 @@
 # its-a-trap
 
-Simple golang webserver that listens for basic auth or post requests and sends a notification when a user enters a password.
+Simple golang webserver that listens for basic auth or post requests and sends a notification when a user enters a
+password.
 
-You need to add your custom templates and post the `username` and `password` parameter to `/login` when using the post mode.
+You need to add your custom templates and post the `username` and `password` parameter to `/login` when using the post
+mode.
 
 ## Folder Layout
 
@@ -15,7 +17,8 @@ its-a-trap/custom
     └── index.html
 ```
 
-This will serve `index.html` and show `finish.html` upon sending a post request. You can use the `asset_folder` to store your custom assets needed for the templates. In basic auth mode only `finish.html` is shown.
+This will serve `index.html` and show `finish.html` upon sending a post request. You can use the `asset_folder` to store
+your custom assets needed for the templates. In basic auth mode only `finish.html` is shown.
 
 ## basic auth example
 
@@ -29,7 +32,7 @@ This will serve `index.html` and show `finish.html` upon sending a post request.
   "cloudflare": false,
   "timeout": "5s",
   "basic": {
-    "realm": "restricted",
+    "realm": "restricted"
   },
   "template": {
     "folder": "./custom/templates",
