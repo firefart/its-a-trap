@@ -478,11 +478,12 @@ func (app *application) routes() http.Handler {
 		}
 
 		headerValue := c.Request().Header.Get(secretKeyHeaderName)
-		if headerValue == "" {
+		switch headerValue {
+		case "":
 			app.logger.Error("test_panic called without secret header")
-		} else if headerValue == app.config.Notifications.SecretKeyHeader {
+		case app.config.Notifications.SecretKeyHeader:
 			panic("test")
-		} else {
+		default:
 			app.logger.Error("test_panic called without valid header")
 		}
 		return c.Render(http.StatusOK, "index.html", nil)
@@ -495,11 +496,12 @@ func (app *application) routes() http.Handler {
 		}
 
 		headerValue := c.Request().Header.Get(secretKeyHeaderName)
-		if headerValue == "" {
+		switch headerValue {
+		case "":
 			app.logger.Error("test_notification called without secret header")
-		} else if headerValue == app.config.Notifications.SecretKeyHeader {
+		case app.config.Notifications.SecretKeyHeader:
 			return fmt.Errorf("test")
-		} else {
+		default:
 			app.logger.Error("test_notification called without valid header")
 		}
 		return c.Render(http.StatusOK, "index.html", nil)
