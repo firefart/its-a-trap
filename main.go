@@ -33,8 +33,8 @@ import (
 	"github.com/nikoksr/notify"
 	"github.com/nikoksr/notify/service/discord"
 	"github.com/nikoksr/notify/service/mail"
+	"github.com/nikoksr/notify/service/mailgun"
 	"github.com/nikoksr/notify/service/msteams"
-	"github.com/nikoksr/notify/service/sendgrid"
 	"github.com/nikoksr/notify/service/telegram"
 
 	_ "go.uber.org/automaxprocs"
@@ -226,15 +226,16 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 		services = append(services, mailService)
 	}
 
-	if config.Notifications.SendGrid.APIKey != "" {
-		app.logger.Info("Notifications: using sendgrid")
-		sendGridService := sendgrid.New(
-			config.Notifications.SendGrid.APIKey,
-			config.Notifications.SendGrid.SenderAddress,
-			config.Notifications.SendGrid.SenderName,
+	if config.Notifications.Mailgun.APIKey != "" {
+		app.logger.Info("Notifications: using mailgun")
+		mailgunService := mailgun.New(
+			config.Notifications.Mailgun.Domain,
+			config.Notifications.Mailgun.APIKey,
+			config.Notifications.Mailgun.SenderAddress,
+			mailgun.WithEurope(),
 		)
-		sendGridService.AddReceivers(config.Notifications.SendGrid.Recipients...)
-		services = append(services, sendGridService)
+		mailgunService.AddReceivers(config.Notifications.Mailgun.Recipients...)
+		services = append(services, mailgunService)
 	}
 
 	if len(config.Notifications.MSTeams.Webhooks) > 0 {
