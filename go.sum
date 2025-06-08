@@ -50,8 +50,8 @@ github.com/likexian/gokit v0.25.15 h1:QjospM1eXhdMMHwZRpMKKAHY/Wig9wgcREmLtf9Nsl
 github.com/likexian/gokit v0.25.15/go.mod h1:S2QisdsxLEHWeD/XI0QMVeggp+jbxYqUxMvSBil7MRg=
 github.com/likexian/whois v1.15.6 h1:hizngFHJTNQDlhwhU+FEGyPGxy8bRnf25gHDNrSB4Ag=
 github.com/likexian/whois v1.15.6/go.mod h1:vx3kt3sZ4mx4XFgpaNp3GXQCZQIzAoyrUAkRtJwoM2I=
-github.com/lmittmann/tint v1.1.1 h1:xmmGuinUsCSxWdwH1OqMUQ4tzQsq3BdjJLAAmVKJ9Dw=
-github.com/lmittmann/tint v1.1.1/go.mod h1:HIS3gSy7qNwGCj+5oRjAutErFBl4BzdQP6cJZ0NfMwE=
+github.com/lmittmann/tint v1.1.2 h1:2CQzrL6rslrsyjqLDwD11bZ5OpLBPU+g3G/r5LSfS8w=
+github.com/lmittmann/tint v1.1.2/go.mod h1:HIS3gSy7qNwGCj+5oRjAutErFBl4BzdQP6cJZ0NfMwE=
 github.com/mailgun/errors v0.4.0 h1:6LFBvod6VIW83CMIOT9sYNp28TCX0NejFPP4dSX++i8=
 github.com/mailgun/errors v0.4.0/go.mod h1:xGBaaKdEdQT0/FhwvoXv4oBaqqmVZz9P1XEnvD/onc0=
 github.com/mailgun/mailgun-go/v4 v4.23.0 h1:jPEMJzzin2s7lvehcfv/0UkyBu18GvcURPr2+xtZRbk=
