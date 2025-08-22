@@ -36,8 +36,6 @@ import (
 	"github.com/nikoksr/notify/service/mailgun"
 	"github.com/nikoksr/notify/service/msteams"
 	"github.com/nikoksr/notify/service/telegram"
-
-	_ "go.uber.org/automaxprocs"
 )
 
 var secretKeyHeaderName = http.CanonicalHeaderKey("X-Secret-Key-Header")
