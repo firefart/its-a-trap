@@ -8,7 +8,7 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/providers/structs v1.0.0
 	github.com/knadh/koanf/v2 v2.3.0
-	github.com/labstack/echo/v4 v4.14.0
+	github.com/labstack/echo/v4 v4.15.0
 	github.com/likexian/whois v1.15.6
 	github.com/lmittmann/tint v1.1.2
 	github.com/mattn/go-isatty v0.0.20
