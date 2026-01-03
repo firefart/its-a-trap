@@ -29,7 +29,7 @@ require (
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
-	github.com/mailgun/errors v0.4.0 // indirect
+	github.com/mailgun/errors v0.5.0 // indirect
 	github.com/mailgun/mailgun-go/v5 v5.9.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
