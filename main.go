@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/likexian/whois"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
@@ -65,13 +65,15 @@ type TemplateRenderer struct {
 }
 
 // Render renders a template document
-func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, _ echo.Context) error {
+func (t *TemplateRenderer) Render(_ *echo.Context, w io.Writer, name string, data any) error {
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
-func customHTTPErrorHandler(err error, c echo.Context) {
-	if c.Response().Committed {
-		return
+func customHTTPErrorHandler(c *echo.Context, err error) {
+	if resp, uErr := echo.UnwrapResponse(c.Response()); uErr == nil {
+		if resp.Committed {
+			return // response has been already sent to the client by handler or some middleware
+		}
 	}
 
 	code := http.StatusInternalServerError
@@ -79,25 +81,25 @@ func customHTTPErrorHandler(err error, c echo.Context) {
 	if errors.As(err, &echoError) {
 		code = echoError.Code
 	}
-	c.Logger().Error(err)
+	c.Logger().Error(err.Error())
 
 	errorPage := fmt.Sprintf("error_pages/HTTP%d.html", code)
 	if _, err := fs.Stat(errorPageAssets, errorPage); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			errorPage = "error_pages/HTTP500.html"
 		} else {
-			c.Logger().Error(err)
+			c.Logger().Error(err.Error())
 			errorPage = "error_pages/HTTP500.html"
 		}
 	}
 
 	content, err := errorPageAssets.ReadFile(errorPage)
 	if err != nil {
-		c.Logger().Error(err)
+		c.Logger().Error(err.Error())
 		return
 	}
 	if err := c.HTMLBlob(code, content); err != nil {
-		c.Logger().Error(err)
+		c.Logger().Error(err.Error())
 		return
 	}
 }
@@ -299,7 +301,7 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 	return nil
 }
 
-func (app *application) handleLogin(c echo.Context, username, password string) error {
+func (app *application) handleLogin(c *echo.Context, username, password string) error {
 	app.logger.Info("Trap activated!", "user", username, "password", password)
 	_, err := c.Cookie(cookieName)
 	if err != nil {
@@ -336,9 +338,11 @@ func (app *application) handleLogin(c echo.Context, username, password string) e
 	return nil
 }
 
-func (app *application) customHTTPErrorHandler(err error, c echo.Context) {
-	if c.Response().Committed {
-		return
+func (app *application) customHTTPErrorHandler(c *echo.Context, err error) {
+	if resp, uErr := echo.UnwrapResponse(c.Response()); uErr == nil {
+		if resp.Committed {
+			return // response has been already sent to the client by handler or some middleware
+		}
 	}
 
 	code := http.StatusInternalServerError
@@ -366,8 +370,6 @@ func (app *application) customHTTPErrorHandler(err error, c echo.Context) {
 
 func (app *application) routes() http.Handler {
 	e := echo.New()
-	e.HideBanner = true
-	e.Debug = app.debug
 	e.Renderer = &TemplateRenderer{
 		templates: template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).ParseGlob(path.Join(app.config.Template.Folder, "*"))),
 	}
@@ -386,9 +388,8 @@ func (app *application) routes() http.Handler {
 		LogMethod:        true,
 		LogContentLength: true,
 		LogResponseSize:  true,
-		LogError:         true,
 		HandleError:      true, // forwards error to the global error handler, so it can decide appropriate status code
-		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
+		LogValuesFunc: func(_ *echo.Context, v middleware.RequestLoggerValues) error {
 			logLevel := slog.LevelInfo
 			errString := ""
 			// only set error on real errors
@@ -415,7 +416,7 @@ func (app *application) routes() http.Handler {
 	if app.config.Method == "basic" {
 		e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
 			Realm: app.config.Basic.Realm,
-			Validator: func(username string, password string, context echo.Context) (bool, error) {
+			Validator: func(context *echo.Context, username string, password string) (bool, error) {
 				if err := app.handleLogin(context, username, password); err != nil {
 					return false, err
 				}
@@ -423,12 +424,7 @@ func (app *application) routes() http.Handler {
 			},
 		}))
 	}
-	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
-		LogErrorFunc: func(_ echo.Context, err error, stack []byte) error {
-			// send the error to the default error handler
-			return fmt.Errorf("PANIC! %v - %s", err, string(stack))
-		},
-	}))
+	e.Use(middleware.Recover())
 
 	e.Static("/assets", app.config.Template.AssetFolder)
 
@@ -437,12 +433,12 @@ func (app *application) routes() http.Handler {
 	switch app.config.Method {
 	case "basic":
 		// render the default template
-		e.GET("/*", func(c echo.Context) error {
+		e.GET("/*", func(c *echo.Context) error {
 			// show the finish template here as we use the basic auth middleware
 			return c.Render(http.StatusOK, app.config.Template.FinishTemplate, nil)
 		})
 	case "post":
-		e.GET("/*", func(c echo.Context) error {
+		e.GET("/*", func(c *echo.Context) error {
 			data := struct {
 				LoginURL          string
 				UsernameParameter string
@@ -454,7 +450,7 @@ func (app *application) routes() http.Handler {
 			}
 			return c.Render(http.StatusOK, app.config.Template.IndexTemplate, data)
 		})
-		e.POST("/login", func(c echo.Context) error {
+		e.POST("/login", func(c *echo.Context) error {
 			username := c.FormValue("username")
 			password := c.FormValue("password")
 			if username == "" || password == "" {
@@ -470,7 +466,7 @@ func (app *application) routes() http.Handler {
 		panic(fmt.Sprintf("invalid method %s", app.config.Method))
 	}
 
-	e.GET("/test_panic", func(c echo.Context) error {
+	e.GET("/test_panic", func(c *echo.Context) error {
 		// no checks in debug mode
 		if app.debug {
 			panic("test")
@@ -488,7 +484,7 @@ func (app *application) routes() http.Handler {
 		return c.Render(http.StatusOK, "index.html", nil)
 	})
 
-	e.GET("/test_notifications", func(c echo.Context) error {
+	e.GET("/test_notifications", func(c *echo.Context) error {
 		// no checks in debug mode
 		if app.debug {
 			return fmt.Errorf("test")
