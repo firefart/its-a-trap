@@ -8,7 +8,7 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/providers/structs v1.0.0
 	github.com/knadh/koanf/v2 v2.3.2
-	github.com/labstack/echo/v5 v5.0.2
+	github.com/labstack/echo/v5 v5.0.3
 	github.com/likexian/whois v1.15.7
 	github.com/lmittmann/tint v1.1.3
 	github.com/mattn/go-isatty v0.0.20
@@ -28,7 +28,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/mailgun/mailgun-go/v5 v5.12.0 // indirect
+	github.com/mailgun/mailgun-go/v5 v5.13.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
