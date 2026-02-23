@@ -580,7 +580,9 @@ func cleanupWhois(s string) string {
 		}
 
 		t = strings.TrimSuffix(t, " # Filtered")
-		res.WriteString(fmt.Sprintf("%s\n", t))
+		if _, err := fmt.Fprintf(&res, "%s\n", t); err != nil {
+			continue
+		}
 	}
 
 	// also replace multiple linebreaks with a single one
