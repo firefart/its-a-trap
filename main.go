@@ -224,6 +224,7 @@ func run(logger *slog.Logger, configFile string, debugMode bool) error {
 				app.config.Notifications.Email.Server,
 			)
 		}
+		mailService.BodyFormat(mail.HTML)
 		mailService.AddReceivers(app.config.Notifications.Email.Recipients...)
 		services = append(services, mailService)
 	}
@@ -320,7 +321,7 @@ func (app *application) handleLogin(c *echo.Context, username, password string) 
 					return err
 				}
 				// also clean the whois to remove a lot of uneeded stuff
-				message = fmt.Sprintf("%s\n\n<strong>WHOIS:</strong>\n<pre>%s</pre>", message, html.EscapeString(cleanupWhois(whoisResult)))
+				message = fmt.Sprintf("%s\n<strong>WHOIS:</strong>\n<pre>%s</pre>", message, html.EscapeString(cleanupWhois(whoisResult)))
 			}
 
 			app.notificationChannel <- notification{
