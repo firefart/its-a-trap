@@ -153,7 +153,7 @@ func main() {
 			AddSource:   debugMode,
 			ReplaceAttr: replaceFunc,
 		}
-		handler = tint.NewHandler(w, textOptions)
+		handler = tint.NewTextHandler(w, textOptions)
 	}
 
 	logger := slog.New(handler)
