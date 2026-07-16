@@ -11,7 +11,7 @@ require (
 	github.com/labstack/echo/v5 v5.3.0
 	github.com/likexian/whois v1.15.7
 	github.com/lmittmann/tint v1.2.0
-	github.com/mattn/go-isatty v0.0.22
+	github.com/mattn/go-isatty v0.0.23
 	github.com/nikoksr/notify v1.5.0
 )
 
